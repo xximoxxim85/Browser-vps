@@ -1,180 +1,236 @@
 #!/bin/bash
 
-#=======================================================
-#             Browser VPS Script - Version 2
-#=======================================================
-# Powered by linuxserver.io and optimized for Google Cloud Shell
-# Author: Gemini
-# Description: This script automatically detects system resources,
-# installs necessary dependencies, and provides a wide range of
-# browser options for an enhanced experience.
-#=======================================================
+# الألوان
+Black='\e[0;30m'        # Black
+Red='\e[0;31m'          # Red
+Green='\e[0;32m'        # Green
+Yellow='\e[0;33m'       # Yellow
+Blue='\e[0;34m'         # Blue
+Purple='\e[0;35m'       # Purple
+Cyan='\e[0;36m'         # Cyan
+White='\e[0;37m'        # White
 
-# Color codes for better aesthetics
-Black='\e[0;30m'
-Red='\e[0;31m'
-Green='\e[0;32m'
-Yellow='\e[0;33m'
-Blue='\e[0;34m'
-Purple='\e[0;35m'
-Cyan='\e[0;36m'
-White='\e[0;37m'
+# الألوان الجريئة
+BBlack='\e[1;30m'       # Bold Black
+BRed='\e[1;31m'         # Bold Red
+BGreen='\e[1;32m'       # Bold Green
+BYellow='\e[1;33m'      # Bold Yellow
+BBlue='\e[1;34m'        # Bold Blue
+BPurple='\e[1;35m'      # Bold Purple
+BCyan='\e[1;36m'        # Bold Cyan
+BWhite='\e[1;37m'       # Bold White
 
-BBlack='\e[1;30m'
-BRed='\e[1;31m'
-BGreen='\e[1;32m'
-BYellow='\e[1;33m'
-BBlue='\e[1;34m'
-BPurple='\e[1;35m'
-BCyan='\e[1;36m'
-BWhite='\e[1;37m'
 
-# Function to clean the screen and display the welcome banner
-function display_banner() {
-    clear
-    echo ""
-    sleep 0.1
-    echo -e "${Cyan}    +${Yellow}--------------------------------------------------------------------------------------------------------------------------${Cyan}+"
-    sleep 0.1
-    echo -e "${Yellow}     |                                                                                                                        |"
-    sleep 0.1
-    echo -e "     |${Green}     ██████╗ ███╗   ██╗██╗     ██╗███╗   ██╗███████╗    ${Red}██████${Black}╗${Red} ██████${Black}╗${Red}  ██████${Black}╗${Red} ██${Black}╗${Red}    ██${Black}╗${Red}███████${Black}╗${Red}███████${Black}╗${Red}██████${Black}╗  ${Yellow}    |"
-    sleep 0.1
-    echo -e "     |${Green}    ██╔═══██╗████╗  ██║██║     ██║████╗  ██║██╔════╝    ${Red}██${Black}╔══${Red}██${Black}╗${Red}██${Black}╔══${Red}██${Black}╗${Red}██${Black}╔═══${Red}██${Black}╗${Red}██${Black}║${Red}    ██${Black}║${Red}██${Black}╔════╝${Red}██${Black}╔════╝${Red}██${Black}╔══${Red}██${Black}╗${Red}    ${Yellow} |"
-    sleep 0.1
-    echo -e "     |${Green}    ██║   ██║██╔██╗ ██║██║     ██║██╔██╗ ██║█████╗      ${Red}██████${Black}╔╝${Red}██████${Black}╔╝${Red}██${Black}║   ${Red}██${Black}║${Red}██${Black}║ ${Red}█${Black}╗ ${Red}██${Black}║${Red}███████${Black}╗${Red}█████${Black}╗  ${Red}██████${Black}╔╝    ${Yellow} |"
-    sleep 0.1
-    echo -e "     |${BGreen}    ██║   ██║██║╚██╗██║██║     ██║██║╚██╗██║██╔══╝      ${BRed}██${Black}╔══${BRed}██${Black}╗${BRed}██${Black}╔══${BRed}██${Black}╗${BRed}██${Black}║   ${Red}██${Black}║${BRed}██${Black}║${BRed}███${Black}╗${BRed}██${Black}║╚════${BRed}██${Black}║${BRed}██${Black}╔══╝  ${BRed}██${Black}╔══${BRed}██${Black}╗    ${Yellow} |"
-    sleep 0.1
-    echo -e "     |${BGreen}    ╚██████╔╝██║ ╚████║███████╗██║██║ ╚████║███████╗    ${BRed}██████${Black}╔╝${BRed}██${Black}║${BRed}  ██${Black}║╚${BRed}██████${Black}╔╝╚${BRed}███${Black}╔${BRed}███${Black}╔╝${BRed}███████${Black}║${BRed}███████${Black}╗${BRed}██${Black}║  ${BRed}██${Black}║    ${Yellow} |"
-    sleep 0.1
-    echo -e "     |${Green}     ╚═════╝ ╚═╝  ╚═══╝╚══════╝╚═╝╚═╝  ╚═══╝╚══════╝    ${Black}╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝ ${Yellow}    |"
-    sleep 0.1
-    echo -e "     |                                                                                                               ${BCyan} BETA${Yellow}    |"
-    sleep 0.1
-    echo -e "     |                                                                                                                        |"
-    sleep 0.1
-    echo -e "${Cyan}    +${Yellow}--------------------------------------------------------------------------------------------------------------------------${Cyan}+"
-    sleep 0.1
-    echo -e "                                     |${BRed} Online Browser ${BYellow}by${BGreen} Hamza Hammouch${Cyan} powerd by${BPurple} linuxserver${Yellow} |"
-    sleep 0.1
-    echo -e "                                     ${Cyan}+${Yellow}--------------------------------------------------------${Cyan}+"
-    echo ""
-}
+#######################################################
 
-# Function to automatically detect system resources
-function get_system_resources() {
-    echo -e "${Green}جاري الكشف عن موارد النظام...${White}"
-    # Get number of CPU cores
-    cpu_cores=$(nproc)
-    echo -e "  - ${BYellow}الأنوية المتاحة:${White} $cpu_cores"
 
-    # Get total system memory in MB and convert to GB with one decimal place
-    total_mem_kb=$(grep MemTotal /proc/meminfo | awk '{print $2}')
-    total_mem_gb=$(echo "scale=1; $total_mem_kb / 1024 / 1024" | bc)
-    # Set shared memory size to 80% of total memory to ensure stability
-    shm_size_gb=$(echo "scale=1; $total_mem_gb * 0.8 / 1" | bc)
-    if (( $(echo "$shm_size_gb < 7" | bc -l) )); then
-        shm_size_gb=7 # Set a minimum of 7GB
-    fi
-    echo -e "  - ${BYellow}الذاكرة المتاحة:${White} ${total_mem_gb}GB"
-    echo -e "  - ${BYellow}ذاكرة SHM المخصصة:${White} ${shm_size_gb}GB"
-
-    # We will use these variables in the Docker command
-    export DOCKER_CPU_CORES=$cpu_cores
-    export DOCKER_SHM_SIZE="${shm_size_gb}gb"
-}
-
-# Function to check for and install dependencies
-function check_dependencies() {
-    if ! command -v docker &> /dev/null
-    then
-        echo -e "${BRed}لم يتم العثور على Docker. جاري التثبيت...${White}"
-        sudo apt-get update > /dev/null 2>&1
-        sudo apt-get install -y docker.io > /dev/null 2>&1
-        sudo systemctl start docker > /dev/null 2>&1
-        sudo systemctl enable docker > /dev/null 2>&1
-        sudo usermod -aG docker $USER > /dev/null 2>&1
-        echo -e "${BGreen}تم تثبيت Docker بنجاح.${White}"
-    fi
-    echo -e "${BGreen}تم التحقق من جميع التبعيات. جاهز للعمل.${White}"
-}
-
-# Function to list available browsers from linuxserver.io and their image names
-function list_browsers() {
-    # This list can be expanded by checking https://hub.docker.com/u/linuxserver
-    declare -A browsers
-    browsers=(
-        ["1"]="chromium"
-        ["2"]="firefox"
-        ["3"]="firefox-dev"
-        ["4"]="firefox-nightly"
-        ["5"]="firefox-syncserver"
-        ["6"]="mullvad-browser"
-        ["7"]="opera"
-        ["8"]="tor"
-        ["9"]="brave"
-    )
-
-    echo -e "${Yellow}     +${White}-------------------------------------------------------------------${Yellow}+"
-    echo -e "${White}     | ${Yellow} ID ${White} |                   ${BPurple}   Browser Name                       ${White}   |"
-    echo -e "${Yellow}     +${White}-------------------------------------------------------------------${Yellow}+"
-    
-    # Iterate through the map and print the list
-    for id in "${!browsers[@]}"; do
-        printf "     | ${Red}[%02d]${White} |${Green} Install %-40s${White}   |\n" "$id" "${browsers[$id]}"
-    done
-
-    echo -e "${Yellow}     +${White}-------------------------------------------------------------------${Yellow}+"
-    echo ""
-    echo -e -n "$White    ${Red} [${Cyan}!Note:${Red}]$White If your choice is Chromium type $Green 1${White} not ${Red}01$White and the same principle applies to other browsers "
-    echo ""
-    echo ""
-    echo -e -n "$White    ${Red} [${Cyan}!${Red}]$White Type the$BRed ID$White "
-    read -p "of your choice : " choice
-    
-    # Return the selected browser image name
-    echo "${browsers[$choice]}"
-}
-
-# Main script execution
+echo -ne '\033c'
 trap RM_HT_FOLDER SIGINT SIGQUIT SIGTSTP
-
-display_banner
-
-check_dependencies
-
-get_system_resources
-
-browser_image_name=$(list_browsers)
-
-if [[ -z "$browser_image_name" ]]; then
-    echo -e "${BRed}اختيار غير صالح. يرجى إدخال رقم من القائمة.${White}"
-    exit 1
-fi
-
 echo ""
-echo -e "${BBlue}جاري إعداد المتصفح $browser_image_name...${White}"
+sleep 0.1
+echo -e "${Cyan}    +${Yellow}--------------------------------------------------------------------------------------------------------------------------${Cyan}+"
+sleep 0.1
+echo -e "${Yellow}     |                                                                                                                        |"
+sleep 0.1
+echo -e "     |${Green}     ██████╗ ███╗   ██╗██╗     ██╗███╗   ██╗███████╗    ${Red}██████${Black}╗${Red} ██████${Black}╗${Red}  ██████${Black}╗${Red} ██${Black}╗${Red}    ██${Black}╗${Red}███████${Black}╗${Red}███████${Black}╗${Red}██████${Black}╗  ${Yellow}    |"
+sleep 0.1
+echo -e "     |${Green}    ██╔═══██╗████╗  ██║██║     ██║████╗  ██║██╔════╝    ${Red}██${Black}╔══${Red}██${Black}╗${Red}██${Black}╔══${Red}██${Black}╗${Red}██${Black}╔═══${Red}██${Black}╗${Red}██${Black}║${Red}    ██${Black}║${Red}██${Black}╔════╝${Red}██${Black}╔════╝${Red}██${Black}╔══${Red}██${Black}╗${Red}    ${Yellow} |"
+sleep 0.1
+echo -e "     |${Green}    ██║   ██║██╔██╗ ██║██║     ██║██╔██╗ ██║█████╗      ${Red}██████${Black}╔╝${Red}██████${Black}╔╝${Red}██${Black}║   ${Red}██${Black}║${Red}██${Black}║ ${Red}█${Black}╗ ${Red}██${Black}║${Red}███████${Black}╗${Red}█████${Black}╗  ${Red}██████${Black}╔╝    ${Yellow} |"
+sleep 0.1
+echo -e "     |${BGreen}    ██║   ██║██║╚██╗██║██║     ██║██║╚██╗██║██╔══╝      ${BRed}██${Black}╔══${BRed}██${Black}╗${BRed}██${Black}╔══${BRed}██${Black}╗${BRed}██${Black}║   ${Red}██${Black}║${BRed}██${Black}║${BRed}███${Black}╗${BRed}██${Black}║╚════${BRed}██${Black}║${BRed}██${Black}╔══╝  ${BRed}██${Black}╔══${BRed}██${Black}╗    ${Yellow} |"
+sleep 0.1
+echo -e "     |${BGreen}    ╚██████╔╝██║ ╚████║███████╗██║██║ ╚████║███████╗    ${BRed}██████${Black}╔╝${BRed}██${Black}║${BRed}  ██${Black}║╚${BRed}██████${Black}╔╝╚${BRed}███${Black}╔${BRed}███${Black}╔╝${BRed}███████${Black}║${BRed}███████${Black}╗${BRed}██${Black}║  ${BRed}██${Black}║    ${Yellow} |"
+sleep 0.1
+echo -e "     |${Green}     ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝╚═╝  ╚═╝╚══════╝    ${Black}╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝ ${Yellow}    |"
+sleep 0.1
+echo -e "     |                                                                                                               ${BCyan} BETA${Yellow}    |"
+sleep 0.1
+echo -e "     |                                                                                                                        |"
+sleep 0.1
+echo -e "${Cyan}    +${Yellow}--------------------------------------------------------------------------------------------------------------------------${Cyan}+${Yellow}"
+sleep 0.1
+echo -e "                                     |${BRed} Online Browser ${BYellow}by${BGreen} Hamza Hammouch${Cyan} powerd by${BPurple} linuxserver${Yellow} |"
+sleep 0.1
+echo -e "                                     ${Cyan}+${Yellow}--------------------------------------------------------${Cyan}+"
+sleep 0.1
 
-# Docker run command with dynamic resource allocation and improved settings
-docker run -d \
-    --name="$browser_image_name" \
-    --security-opt seccomp=unconfined \
-    -e PUID=1000 \
-    -e PGID=1000 \
-    -e TZ=Etc/UTC \
-    -e VIRTUAL_DISPLAY=1920x1080 \
-    -e CUSTOM_PORTS=3000,3001 \
-    -p 3000:3000 \
-    -p 3001:3001 \
-    -v "/${browser_image_name}:/config" \
-    --cpus="$DOCKER_CPU_CORES" \
-    --memory="$DOCKER_SHM_SIZE" \
-    --shm-size="$DOCKER_SHM_SIZE" \
-    --restart unless-stopped \
-    ghcr.io/linuxserver/"$browser_image_name":latest
+#######################################################
 
-echo -e "${BGreen}تم تشغيل المتصفح بنجاح! يمكنك الآن الوصول إليه عبر المنفذ 3000.${White}"
+
+echo -e "${Yellow}     +${White}-------------------------------------------------------------------${Yellow}+"
+echo -e "${White}     | ${Yellow} ID ${White} |                   ${BPurple}   Browser Name                       ${White}   |"
+echo -e "${Yellow}     +${White}-------------------------------------------------------------------${Yellow}+"
+echo -e "${White}     | ${Red}[${Yellow}01${Red}]${White} |$Green Install Chromium${White}                                           |"
+echo -e "${White}     | ${Red}[${Yellow}02${Red}]${White} |$Green Install Firefox${White}                                            |"
+echo -e "${White}     | ${Red}[${Yellow}03${Red}]${White} |$Green Install Opera${White}                                              |"
+echo -e "${White}     | ${Red}[${Yellow}04${Red}]${White} |$Green Install Mullvad Browser${White}                                    |"
+echo -e "${White}     | ${Red}[${Yellow}05${Red}]${White} |$Green Install Vivaldi${White}                                              |"
+echo -e "${White}     | ${Red}[${Yellow}06${Red}]${White} |$Green Install Brave${White}                                                |"
+echo -e "${White}     | ${Red}[${Yellow}07${Red}]${White} |$Green Install Edge${White}                                                 |"
+echo -e "${White}     | ${Red}[${Yellow}08${Red}]${White} |$Green Install qutebrowser${White}                                        |"
+echo -e "${White}     | ${Red}[${Yellow}09${Red}]${White} |$Green Install KasmVNC${White}                                              |"
+echo -e "${Yellow}     +${White}-------------------------------------------------------------------${Yellow}+"
+echo ""
+echo -e -n "$White    ${Red} [${Cyan}!Note:${Red}]$White If your choice is Chromium type $Green 1${White} not ${Red}01$White and the same principle applies to other browsers "
+echo ""
+echo ""
+echo -e -n "$White    ${Red} [${Cyan}!${Red}]$White Type the$BRed ID$White "
+read -p "of your choice : " choice
+case $choice in
+    1)
+        # متصفح كروم الشهير مفتوح المصدر
+        echo "Installing Chromium..."
+        docker run -d \
+            --name=chromium \
+            --security-opt seccomp=unconfined \
+            -e PUID=1000 \
+            -e PGID=1000 \
+            -e TZ=Etc/UTC \
+            -p 3000:3000 \
+            -p 3001:3001 \
+            -v /chromium:/config \
+            --shm-size="7gb" \
+            --restart unless-stopped \
+            ghcr.io/linuxserver/chromium:latest
+        ;;
+    2)
+        # متصفح فايرفوكس المعروف، يركز على الخصوصية وحرية المستخدم
+        echo "Installing Firefox..."
+        docker run -d \
+            --name=firefox \
+            --security-opt seccomp=unconfined \
+            -e PUID=1000 \
+            -e PGID=1000 \
+            -e TZ=Etc/UTC \
+            -p 3000:3000 \
+            -p 3001:3001 \
+            -v /firefox:/config \
+            --shm-size="7gb" \
+            --restart unless-stopped \
+            ghcr.io/linuxserver/firefox:latest
+        ;;
+    3)
+        # متصفح أوبرا، يتميز بميزاته المدمجة مثل VPN مجاني ومانع للإعلانات
+        echo "Installing Opera..."
+        docker run -d \
+            --name=opera \
+            --security-opt seccomp=unconfined \
+            -e PUID=1000 \
+            -e PGID=1000 \
+            -e TZ=Etc/UTC \
+            -p 3000:3000 \
+            -p 3001:3001 \
+            -v /opera:/config \
+            --shm-size="7gb" \
+            --restart unless-stopped \
+            ghcr.io/linuxserver/opera:latest
+        ;;
+    4)
+        # متصفح Mullvad، يركز بشكل كبير على الخصوصية والأمان، ويعمل مع خدمة Mullvad VPN
+        echo "Installing Mullvad Browser..."
+        docker run -d \
+            --name=mullvad-browser \
+            --security-opt seccomp=unconfined \
+            -e PUID=1000 \
+            -e PGID=1000 \
+            -e TZ=Etc/UTC \
+            -p 3000:3000 \
+            -p 3001:3001 \
+            -v /mullvad-browser:/config \
+            --shm-size="7gb" \
+            --restart unless-stopped \
+            ghcr.io/linuxserver/mullvad-browser:latest
+        ;;
+    5)
+        # متصفح Vivaldi، يتيح تخصيصًا كبيرًا ويقدم ميزات قوية للمستخدمين المتقدمين
+        echo "Installing Vivaldi..."
+        docker run -d \
+            --name=vivaldi \
+            --security-opt seccomp=unconfined \
+            -e PUID=1000 \
+            -e PGID=1000 \
+            -e TZ=Etc/UTC \
+            -p 3000:3000 \
+            -p 3001:3001 \
+            -v /vivaldi:/config \
+            --shm-size="7gb" \
+            --restart unless-stopped \
+            ghcr.io/linuxserver/vivaldi:latest
+        ;;
+    6)
+        # متصفح Brave، يركز على الخصوصية ومانع الإعلانات المدمج، ويستخدم نظامًا للمكافآت
+        echo "Installing Brave..."
+        docker run -d \
+            --name=brave \
+            --security-opt seccomp=unconfined \
+            -e PUID=1000 \
+            -e PGID=1000 \
+            -e TZ=Etc/UTC \
+            -p 3000:3000 \
+            -p 3001:3001 \
+            -v /brave:/config \
+            --shm-size="7gb" \
+            --restart unless-stopped \
+            ghcr.io/linuxserver/brave:latest
+        ;;
+    7)
+        # متصفح Microsoft Edge، مبني على Chromium ويقدم تجربة تصفح سريعة وموثوقة
+        echo "Installing Microsoft Edge..."
+        docker run -d \
+            --name=edge \
+            --security-opt seccomp=unconfined \
+            -e PUID=1000 \
+            -e PGID=1000 \
+            -e TZ=Etc/UTC \
+            -p 3000:3000 \
+            -p 3001:3001 \
+            -v /edge:/config \
+            --shm-size="7gb" \
+            --restart unless-stopped \
+            ghcr.io/linuxserver/edge:latest
+        ;;
+    8)
+        # متصفح qutebrowser، متصفح موجه للمستخدمين المتقدمين ويتم التحكم فيه بشكل كامل عن طريق لوحة المفاتيح
+        echo "Installing qutebrowser..."
+        docker run -d \
+            --name=qutebrowser \
+            --security-opt seccomp=unconfined \
+            -e PUID=1000 \
+            -e PGID=1000 \
+            -e TZ=Etc/UTC \
+            -p 3000:3000 \
+            -p 3001:3001 \
+            -v /qutebrowser:/config \
+            --shm-size="7gb" \
+            --restart unless-stopped \
+            ghcr.io/linuxserver/qutebrowser:latest
+        ;;
+    9)
+        # KasmVNC، يوفر سطح مكتب كامل (جهاز تحكم عن بعد) يمكنك من خلاله الوصول إلى المتصفحات والقيام بمهام أخرى
+        echo "Installing KasmVNC..."
+        docker run -d \
+            --name=kasms-vnc \
+            --security-opt seccomp=unconfined \
+            -e PUID=1000 \
+            -e PGID=1000 \
+            -e TZ=Etc/UTC \
+            -p 3000:3000 \
+            -p 3001:3001 \
+            -v /kasm-vnc:/config \
+            --shm-size="7gb" \
+            --restart unless-stopped \
+            ghcr.io/linuxserver/kasms-vnc:latest
+        ;;
+    *)
+        echo "Invalid choice. Please enter a valid number."
+        exit 1
+        ;;
+esac
+
+#######################################################
+
+clear
 echo ""
 sleep 0.1
 echo -e -n "$White    ${Red} [${Green} ✔ ${Red}]$White Browser installation completed successfully ( •̀ ω •́ )✧"
@@ -182,17 +238,29 @@ sleep 0.1
 echo ""
 sleep 0.1
 echo ""
-echo ""
+sleep 0.1
 echo -e "    ${Red} ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀${Blue}⢀⣠⣴⣾⣿⣿⣿⣶⣄⡀⠀"
+sleep 0.1
 echo -e "    ${Red} ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀${Blue}⣀⣤⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⡄"
+sleep 0.1
 echo -e "    ${Red} ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀${Blue}⢀⣠⣴⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷"
+sleep 0.1
 echo -e "    ${Red} ⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⡤${Blue}⠾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡟⠉⠙⣿⣿⡿"
+sleep 0.1
 echo -e "    ${Red} ⠀⠀⠀⠀⠀⢀⣠⠶⠛⠁⠀⠀${Blue}⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣧⣄⣠⣿⡿⠁"
+sleep 0.1
 echo -e "    ${Red} ⠀⠀⣀⡤⠞⠉⠀⠀⠀⠀⠀⠀${Blue}⠸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠟⠋⠀⠀"
+sleep 0.1
 echo -e "    ${Red} ⢀⡾⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀${Blue}⠙⢿⣿⣿⣿⣿⣿⣿⣿⠿⠛⠉⠀⠀⠀⠀⠀"
+sleep 0.1
 echo -e "    ${Red} ⣾⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⣤⡀${Blue}⠙⢿⣿⡿⠟⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀"
+sleep 0.1
 echo -e "    ${Red} ⣿⠀⠀⠀⠀⠀⠀⠀⣠⣴⣾⡿⠟⢋⣤⠶⠛⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀"
+sleep 0.1
 echo -e "    ${Red} ⠘⣧⡀⠀⢰⣿⣶⣿⠿⠛⣩⡴⠞⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀"
+sleep 0.1
 echo -e "    ${Red} ⠀⠈⠛⠦⣤⣤⣤⡤⠖⠋⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀"
+sleep 0.1
 echo -e "    ${White}"
+sleep 0.1
 echo ""
