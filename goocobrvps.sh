@@ -1,361 +1,264 @@
 #!/bin/bash
 
-# إعدادات الألوان المحسنة
-NC='\e[0m'          # No Color
-BLACK='\e[0;30m'
-RED='\e[0;31m'
-GREEN='\e[0;32m'
-YELLOW='\e[0;33m'
-BLUE='\e[0;34m'
-PURPLE='\e[0;35m'
-CYAN='\e[0;36m'
-WHITE='\e[0;37m'
-BOLD_BLACK='\e[1;30m'
-BOLD_RED='\e[1;31m'
-BOLD_GREEN='\e[1;32m'
-BOLD_YELLOW='\e[1;33m'
-BOLD_BLUE='\e[1;34m'
-BOLD_PURPLE='\e[1;35m'
-BOLD_CYAN='\e[1;36m'
-BOLD_WHITE='\e[1;37m'
+# Regular Colors
+Black='\033[0;30m'
+Red='\033[0;31m'
+Green='\033[0;32m'
+Yellow='\033[0;33m'
+Blue='\033[0;34m'
+Purple='\033[0;35m'
+Cyan='\033[0;36m'
+White='\033[0;37m'
 
-# دالة للتحقق من الأخطاء
-check_error() {
-    if [ $? -ne 0 ]; then
-        echo -e "${BOLD_RED}[ERROR]${NC} $1"
-        exit 1
-    fi
-}
+# Bold
+BBlack='\033[1;30m'
+BRed='\033[1;31m'
+BGreen='\033[1;32m'
+BYellow='\033[1;33m'
+BBlue='\033[1;34m'
+BPurple='\033[1;35m'
+BCyan='\033[1;36m'
+BWhite='\033[1;37m'
 
-# دالة لجلب معلومات النظام
+# Reset
+NC='\033[0m'
+
+#######################################################
+# دالة لجمع المعلومات عن النظام
 get_system_info() {
-    echo -e "${BOLD_CYAN}جمع معلومات النظام...${NC}"
-    TOTAL_RAM=$(grep MemTotal /proc/meminfo | awk '{print $2}')
-    AVAILABLE_RAM=$(grep MemAvailable /proc/meminfo | awk '{print $2}')
+    echo -e "${Yellow}جمع معلومات النظام...${NC}"
+    TOTAL_MEMORY=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+    TOTAL_MEMORY_GB=$((TOTAL_MEMORY / 1024 / 1024))
+    AVAILABLE_MEMORY=$(grep MemAvailable /proc/meminfo | awk '{print $2}')
+    AVAILABLE_MEMORY_GB=$((AVAILABLE_MEMORY / 1024 / 1024))
     CPU_CORES=$(nproc)
     SWAP_SIZE=$(grep SwapTotal /proc/meminfo | awk '{print $2}')
-    DISK_SPACE=$(df / | tail -1 | awk '{print $4}')
+    SWAP_SIZE_GB=$((SWAP_SIZE / 1024 / 1024))
     
-    echo -e "${BOLD_GREEN}موارد النظام:${NC}"
-    echo -e " - الذاكرة RAM: $((TOTAL_RAM / 1024)) MB (متاح: $((AVAILABLE_RAM / 1024)) MB)"
-    echo -e " - نوى المعالج: $CPU_CORES"
-    echo -e " - مساحة التبديل: $((SWAP_SIZE / 1024)) MB"
-    echo -e " - مساحة القرص: $((DISK_SPACE / 1024)) MB"
-    
-    # حساب حجم الذاكرة المشتركة المثالي بناءً على الذاكرة المتاحة
-    if [ $AVAILABLE_RAM -gt 8000000 ]; then
+    # حساب حجم الذاكرة المشتركة المثالي (نصف الذاكرة المتاحة بحد أقصى 8GB)
+    CALCULATED_SHM=$((AVAILABLE_MEMORY / 2 / 1024 / 1024))
+    if [ $CALCULATED_SHM -gt 8 ]; then
         SHM_SIZE="8gb"
-    elif [ $AVAILABLE_RAM -gt 4000000 ]; then
-        SHM_SIZE="4gb"
-    elif [ $AVAILABLE_RAM -gt 2000000 ]; then
-        SHM_SIZE="2gb"
-    else
+    elif [ $CALCULATED_SHM -lt 1 ]; then
         SHM_SIZE="1gb"
-    fi
-    
-    # تحديد عدد مراكز المعالجة المثالي
-    if [ $CPU_CORES -gt 8 ]; then
-        CPU_COUNT=8
-    elif [ $CPU_CORES -gt 4 ]; then
-        CPU_COUNT=4
     else
-        CPU_COUNT=2
+        SHM_SIZE="${CALCULATED_SHM}gb"
     fi
 }
 
 # دالة لتحسين إعدادات النظام
 optimize_system() {
-    echo -e "${BOLD_CYAN}تحسين إعدادات النظام...${NC}"
+    echo -e "${Yellow}تحسين إعدادات النظام...${NC}"
     
-    # زيادة حجم الذاكرة المشتركة
-    mount -o remount,size=${SHM_SIZE} /dev/shm
-    check_error "فشل في تعديل حجم الذاكرة المشتركة"
+    # زيادة مساحة الذاكرة المشتركة إذا كانت منخفضة
+    if [ $CALCULATED_SHM -lt 2 ]; then
+        mount -o remount,size=2G /dev/shm
+    fi
     
     # تحسين إعدادات الشبكة
     sysctl -w net.core.rmem_max=26214400
     sysctl -w net.core.wmem_max=26214400
+    sysctl -w net.core.rmem_default=26214400
+    sysctl -w net.core.wmem_default=26214400
+    sysctl -w net.core.optmem_max=26214400
     sysctl -w net.ipv4.tcp_rmem='4096 87380 26214400'
     sysctl -w net.ipv4.tcp_wmem='4096 65536 26214400'
-    
-    # تحسين إعدادات نظام الملفات
-    sysctl -w vm.swappiness=10
-    sysctl -w vm.vfs_cache_pressure=50
-    
-    echo -e "${BOLD_GREEN}تم تحسين إعدادات النظام بنجاح${NC}"
 }
 
-# دالة للتحقق من تثبيت Docker
-check_docker() {
-    if ! command -v docker &> /dev/null; then
-        echo -e "${BOLD_RED}Docker غير مثبت${NC}"
-        echo -e "${BOLD_YELLOW}جاري تثبيت Docker...${NC}"
-        curl -fsSL https://get.docker.com -o get-docker.sh
-        sh get-docker.sh
-        check_error "فشل في تثبيت Docker"
-        rm get-docker.sh
-    fi
-    
-    # تشغيل خدمة Docker إذا لم تكن تعمل
-    if ! systemctl is-active --quiet docker; then
-        echo -e "${BOLD_YELLOW}تشغيل خدمة Docker...${NC}"
-        systemctl start docker
-        systemctl enable docker
-        check_error "فشل في تشغيل Docker"
-    fi
-    
-    echo -e "${BOLD_GREEN}Docker جاهز للاستخدام${NC}"
-}
-
-# دالة لإنشاء شبكة Docker معزولة
-create_network() {
-    if ! docker network ls | grep -q "browser_network"; then
-        echo -e "${BOLD_CYAN}إنشاء شبكة معزولة للمتصفحات...${NC}"
-        docker network create browser_network
-        check_error "فشل في إنشاء الشبكة"
-    fi
-}
-
-# دالة لتحميل وتشغيل المتصفح
-run_browser() {
+# دالة لإنشاء الحاوية
+create_container() {
     local name=$1
     local image=$2
-    local port=$3
+    local extra_args=$3
     
-    echo -e "${BOLD_CYAN}جاري تثبيت ${name}...${NC}"
+    echo -e "${Green}جاري تثبيت ${name}...${NC}"
     
-    # إيقاف وإزالة الحاوية القديمة إذا كانت موجودة
-    if docker ps -a | grep -q "${name}"; then
-        echo -e "${BOLD_YELLOW}إزالة الإصدار القديم من ${name}...${NC}"
-        docker stop "${name}" >/dev/null 2>&1
-        docker rm "${name}" >/dev/null 2>&1
-    fi
+    # إيقاف الحاوية إذا كانت تعمل
+    docker stop $name 2>/dev/null || true
+    docker rm $name 2>/dev/null || true
     
-    # إنشاء مجلد التهيئة
-    mkdir -p "/config/${name}"
-    
-    # تشغيل المتصفح مع الإعدادات المحسنة
+    # إنشاء الحاوية مع الإعدادات المحسنة
     docker run -d \
-        --name="${name}" \
-        --network=browser_network \
-        --cpus=${CPU_COUNT} \
-        --memory=$((${AVAILABLE_RAM} / 1024 * 80 / 100))k \
-        --memory-swap=$((${SWAP_SIZE} / 1024 * 80 / 100))k \
+        --name=${name} \
         --security-opt seccomp=unconfined \
-        --cap-add=SYS_ADMIN \
         --device /dev/dri:/dev/dri \
-        --shm-size="${SHM_SIZE}" \
+        --shm-size=${SHM_SIZE} \
         -e PUID=1000 \
         -e PGID=1000 \
-        -e TZ=$(cat /etc/timezone) \
+        -e TZ=Etc/UTC \
         -e NVIDIA_DRIVER_CAPABILITIES=all \
         -e NVIDIA_VISIBLE_DEVICES=all \
-        -p ${port}:3000 \
-        -p $((${port} + 1)):3001 \
-        -v "/config/${name}":/config \
-        -v /tmp:/tmp \
+        -p 3000:3000 \
+        -p 3001:3001 \
+        -v /tmp/.X11-unix:/tmp/.X11-unix \
+        -v ${name}_config:/config \
+        --cpus=${CPU_CORES} \
+        --memory=${AVAILABLE_MEMORY_GB}G \
         --restart unless-stopped \
-        "${image}"
+        ${extra_args} \
+        ${image}
     
-    check_error "فشل في تشغيل ${name}"
-    
-    echo -e "${BOLD_GREEN}تم تثبيت ${name} بنجاح على المنفذ ${port}${NC}"
+    echo -e "${BGreen}تم تثبيت ${name} بنجاح!${NC}"
 }
 
-# دالة للعرض البصري المحسن
-show_banner() {
-    clear
-    echo -e "${BOLD_CYAN}"
-    cat << "EOF"
-    ┌──────────────────────────────────────────────────────────────────────────────┐
-    │                                                                              │
-    │    ██████╗ ██████╗  ██████╗ ██╗    ██╗███████╗███████╗██████╗ ███████╗       │
-    │    ██╔══██╗██╔══██╗██╔═══██╗██║    ██║██╔════╝██╔════╝██╔══██╗██╔════╝       │
-    │    ██████╔╝██████╔╝██║   ██║██║ █╗ ██║███████╗█████╗  ██████╔╝███████╗       │
-    │    ██╔══██╗██╔══██╗██║   ██║██║███╗██║╚════██║██╔══╝  ██╔══██╗╚════██║       │
-    │    ██████╔╝██║  ██║╚██████╔╝╚███╔███╔╝███████║███████╗██║  ██║███████║       │
-    │    ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝       │
-    │                                                                              │
-    │                         Browser VPS Manager - Enhanced                       │
-    │                                                                              │
-    └──────────────────────────────────────────────────────────────────────────────┘
-EOF
-    echo -e "${NC}"
-}
+#######################################################
 
-# دالة لعرض القائمة الرئيسية
-show_menu() {
-    echo -e "${BOLD_YELLOW}"
-    echo "    +-------------------------------------------------------------------+"
-    echo "    | ${BOLD_WHITE}ID ${BOLD_YELLOW} |                   ${BOLD_PURPLE}Browser Name${BOLD_YELLOW}                       |"
-    echo "    +-------------------------------------------------------------------+"
-    echo "    | ${GREEN}[1]${BOLD_YELLOW}  |${GREEN} Install Chromium${BOLD_YELLOW}                                   |"
-    echo "    | ${GREEN}[2]${BOLD_YELLOW}  |${GREEN} Install Firefox${BOLD_YELLOW}                                    |"
-    echo "    | ${GREEN}[3]${BOLD_YELLOW}  |${GREEN} Install Opera${BOLD_YELLOW}                                      |"
-    echo "    | ${GREEN}[4]${BOLD_YELLOW}  |${GREEN} Install Mullvad Browser${BOLD_YELLOW}                            |"
-    echo "    | ${GREEN}[5]${BOLD_YELLOW}  |${GREEN} Install Brave${BOLD_YELLOW}                                      |"
-    echo "    | ${GREEN}[6]${BOLD_YELLOW}  |${GREEN} Install Vivaldi${BOLD_YELLOW}                                    |"
-    echo "    | ${GREEN}[7]${BOLD_YELLOW}  |${GREEN} Install Tor Browser${BOLD_YELLOW}                                |"
-    echo "    | ${GREEN}[8]${BOLD_YELLOW}  |${GREEN} Install Edge${BOLD_YELLOW}                                       |"
-    echo "    | ${GREEN}[9]${BOLD_YELLOW}  |${GREEN} Install Lynx (Text-based)${BOLD_YELLOW}                          |"
-    echo "    | ${GREEN}[10]${BOLD_YELLOW} |${GREEN} Install All Browsers${BOLD_YELLOW}                               |"
-    echo "    | ${RED}[0]${BOLD_YELLOW}  |${RED} Exit${BOLD_YELLOW}                                                  |"
-    echo "    +-------------------------------------------------------------------+"
-    echo -e "${NC}"
-}
+clear
+echo -e "${NC}"
 
-# دالة للخيار المتقدم للإعدادات
-advanced_settings() {
-    echo -e "${BOLD_CYAN}"
-    echo "الإعدادات المتقدمة:"
-    echo -e "${BOLD_WHITE}[1]${NC} تغيير منفذ التشغيل الافتراضي (الحالي: ${BOLD_GREEN}${START_PORT}${NC})"
-    echo -e "${BOLD_WHITE}[2]${NC} تغيير حجم الذاكرة المشتركة (الحالي: ${BOLD_GREEN}${SHM_SIZE}${NC})"
-    echo -e "${BOLD_WHITE}[3]${NC} عرض حالة الحاويات"
-    echo -e "${BOLD_WHITE}[4]${NC} إزالة جميع المتصفحات"
-    echo -e "${BOLD_WHITE}[5]${NC} العودة إلى القائمة الرئيسية"
-    
-    read -p "اختر خيارًا: " advanced_choice
-    case $advanced_choice in
-        1)
-            read -p "أدخل منفذ البدء الجديد: " new_port
-            if [[ $new_port =~ ^[0-9]+$ ]] && [ $new_port -ge 1024 ] && [ $new_port -le 65535 ]; then
-                START_PORT=$new_port
-                echo -e "${BOLD_GREEN}تم تغيير منفذ البدء إلى ${START_PORT}${NC}"
-            else
-                echo -e "${BOLD_RED}منفذ غير صالح${NC}"
-            fi
-            ;;
-        2)
-            read -p "أدخل حجم الذاكرة المشتركة الجديد (مثال: 2gb, 512mb): " new_shm
-            if [[ $new_shm =~ ^[0-9]+(gb|mb)$ ]]; then
-                SHM_SIZE=$new_shm
-                echo -e "${BOLD_GREEN}تم تغيير حجم الذاكرة المشتركة إلى ${SHM_SIZE}${NC}"
-            else
-                echo -e "${BOLD_RED}حجم غير صالح${NC}"
-            fi
-            ;;
-        3)
-            echo -e "${BOLD_CYAN}حالة الحاويات الحالية:${NC}"
-            docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-            ;;
-        4)
-            echo -e "${BOLD_RED}إزالة جميع متصفحات Docker...${NC}"
-            docker stop $(docker ps -a -q) >/dev/null 2>&1
-            docker rm $(docker ps -a -q) >/dev/null 2>&1
-            echo -e "${BOLD_GREEN}تم إزالة جميع الحاويات${NC}"
-            ;;
-        5)
-            return
-            ;;
-        *)
-            echo -e "${BOLD_RED}خيار غير صالح${NC}"
-            ;;
-    esac
-    read -n 1 -s -r -p "اضغط أي مفتاح للمتابعة..."
-}
+get_system_info
+optimize_system
 
-# دالة للخروج النظيف
-cleanup() {
-    echo -e "${BOLD_CYAN}تنظيف الموارد...${NC}"
-    # إعادة تعيين إعدادات النظام
-    sysctl -w net.core.rmem_max=212992
-    sysctl -w net.core.wmem_max=212992
-    sysctl -w net.ipv4.tcp_rmem='4096 87380 6291456'
-    sysctl -w net.ipv4.tcp_wmem='4096 16384 4194304'
-    echo -e "${BOLD_GREEN}تم التنظيف بنجاح${NC}"
-    exit 0
-}
+echo -e "${Cyan}    +${Yellow}--------------------------------------------------------------------------------------------------------------------------${Cyan}+"
+echo -e "${Yellow}     |                                                                                                                        |"
+echo -e "     |${Green}     ‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą‚ēó ‚Ėą‚Ėą‚Ėą‚ēó   ‚Ėą‚Ėą‚ēó‚Ėą‚Ėą‚ēó     ‚Ėą‚Ėą‚ēó‚Ėą‚Ėą‚Ėą‚ēó   ‚Ėą‚Ėą‚ēó‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą‚ēó    ${Red}‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą${Black}‚ēó${Red} ‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą${Black}‚ēó${Red}  ‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą${Black}‚ēó${Red} ‚Ėą‚Ėą${Black}‚ēó${Red}    ‚Ėą‚Ėą${Black}‚ēó${Red}‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą${Black}‚ēó${Red}‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą${Black}‚ēó${Red}‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą${Black}‚ēó  ${Yellow}    |"
+echo -e "     |${Green}    ‚Ėą‚Ėą‚ēĒ‚ēź‚ēź‚ēź‚Ėą‚Ėą‚ēó‚Ėą‚Ėą‚Ėą‚Ėą‚ēó  ‚Ėą‚Ėą‚ēĎ‚Ėą‚Ėą‚ēĎ     ‚Ėą‚Ėą‚ēĎ‚Ėą‚Ėą‚Ėą‚Ėą‚ēó  ‚Ėą‚Ėą‚ēĎ‚Ėą‚Ėą‚ēĒ‚ēź‚ēź‚ēź‚ēź‚ēĚ    ${Red}‚Ėą‚Ėą${Black}‚ēĒ‚ēź‚ēź${Red}‚Ėą‚Ėą${Black}‚ēó${Red}‚Ėą‚Ėą${Black}‚ēĒ‚ēź‚ēź${Red}‚Ėą‚Ėą${Black}‚ēó${Red}‚Ėą‚Ėą${Black}‚ēĒ‚ēź‚ēź‚ēź${Red}‚Ėą‚Ėą${Black}‚ēó${Red}‚Ėą‚Ėą${Black}‚ēĎ${Red}    ‚Ėą‚Ėą${Black}‚ēĎ${Red}‚Ėą‚Ėą${Black}‚ēĒ‚ēź‚ēź‚ēź‚ēź‚ēĚ${Red}‚Ėą‚Ėą${Black}‚ēĒ‚ēź‚ēź‚ēź‚ēź‚ēĚ${Red}‚Ėą‚Ėą${Black}‚ēĒ‚ēź‚ēź${Red}‚Ėą‚Ėą${Black}‚ēó${Red}    ${Yellow} |"
+echo -e "     |${Green}    ‚Ėą‚Ėą‚ēĎ   ‚Ėą‚Ėą‚ēĎ‚Ėą‚Ėą‚ēĒ‚Ėą‚Ėą‚ēó ‚Ėą‚Ėą‚ēĎ‚Ėą‚Ėą‚ēĎ     ‚Ėą‚Ėą‚ēĎ‚Ėą‚Ėą‚ēĒ‚Ėą‚Ėą‚ēó ‚Ėą‚Ėą‚ēĎ‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą‚ēó      ${Red}‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą${Black}‚ēĒ‚ēĚ${Red}‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą${Black}‚ēĒ‚ēĚ${Red}‚Ėą‚Ėą${Black}‚ēĎ   ${Red}‚Ėą‚Ėą${Black}‚ēĎ${Red}‚Ėą‚Ėą${Black}‚ēĎ ${Red}‚Ėą${Black}‚ēó ${Red}‚Ėą‚Ėą${Black}‚ēĎ${Red}‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą${Black}‚ēó${Red}‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą${Black}‚ēó  ${Red}‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą${Black}‚ēĒ‚ēĚ    ${Yellow} |"
+echo -e "     |${BGreen}    ‚Ėą‚Ėą‚ēĎ   ‚Ėą‚Ėą‚ēĎ‚Ėą‚Ėą‚ēĎ‚ēö‚Ėą‚Ėą‚ēó‚Ėą‚Ėą‚ēĎ‚Ėą‚Ėą‚ēĎ     ‚Ėą‚Ėą‚ēĎ‚Ėą‚Ėą‚ēĎ‚ēö‚Ėą‚Ėą‚ēó‚Ėą‚Ėą‚ēĎ‚Ėą‚Ėą‚ēĒ‚ēź‚ēź‚ēĚ      ${BRed}‚Ėą‚Ėą${Black}‚ēĒ‚ēź‚ēź${BRed}‚Ėą‚Ėą${Black}‚ēó${BRed}‚Ėą‚Ėą${Black}‚ēĒ‚ēź‚ēź${BRed}‚Ėą‚Ėą${Black}‚ēó${BRed}‚Ėą‚Ėą${Black}‚ēĎ   ${Red}‚Ėą‚Ėą${Black}‚ēĎ${BRed}‚Ėą‚Ėą${Black}‚ēĎ${BRed}‚Ėą‚Ėą‚Ėą${Black}‚ēó${BRed}‚Ėą‚Ėą${Black}‚ēĎ‚ēö‚ēź‚ēź‚ēź‚ēź${BRed}‚Ėą‚Ėą${Black}‚ēĎ${BRed}‚Ėą‚Ėą${Black}‚ēĒ‚ēź‚ēź‚ēĚ  ${BRed}‚Ėą‚Ėą${Black}‚ēĒ‚ēź‚ēź${BRed}‚Ėą‚Ėą${Black}‚ēó    ${Yellow} |"
+echo -e "     |${BGreen}    ‚ēö‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą‚ēĒ‚ēĚ‚Ėą‚Ėą‚ēĎ ‚ēö‚Ėą‚Ėą‚Ėą‚Ėą‚ēĎ‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą‚ēó‚Ėą‚Ėą‚ēĎ‚Ėą‚Ėą‚ēĎ ‚ēö‚Ėą‚Ėą‚Ėą‚Ėą‚ēĎ‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą‚ēó    ${BRed}‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą${Black}‚ēĒ‚ēĚ${BRed}‚Ėą‚Ėą${Black}‚ēĎ${BRed}  ‚Ėą‚Ėą${Black}‚ēĎ‚ēö${BRed}‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą${Black}‚ēĒ‚ēĚ‚ēö${BRed}‚Ėą‚Ėą‚Ėą${Black}‚ēĒ${BRed}‚Ėą‚Ėą‚Ėą${Black}‚ēĒ‚ēĚ${BRed}‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą${Black}‚ēĎ${BRed}‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą‚Ėą${Black}‚ēó${BRed}‚Ėą‚Ėą${Black}‚ēĎ  ${BRed}‚Ėą‚Ėą${Black}‚ēĎ    ${Yellow} |"
+echo -e "     |${Green}     ‚ēö‚ēź‚ēź‚ēź‚ēź‚ēź‚ēĚ ‚ēö‚ēź‚ēĚ  ‚ēö‚ēź‚ēź‚ēź‚ēĚ‚ēö‚ēź‚ēź‚ēź‚ēź‚ēź‚ēź‚ēĚ‚ēö‚ēź‚ēĚ‚ēö‚ēź‚ēĚ  ‚ēö‚ēź‚ēź‚ēź‚ēĚ‚ēö‚ēź‚ēź‚ēź‚ēź‚ēź‚ēź‚ēĚ    ${Black}‚ēö‚ēź‚ēź‚ēź‚ēź‚ēź‚ēĚ ‚ēö‚ēź‚ēĚ  ‚ēö‚ēź‚ēĚ ‚ēö‚ēź‚ēź‚ēź‚ēź‚ēź‚ēĚ  ‚ēö‚ēź‚ēź‚ēĚ‚ēö‚ēź‚ēź‚ēĚ ‚ēö‚ēź‚ēź‚ēź‚ēź‚ēź‚ēź‚ēĚ‚ēö‚ēź‚ēź‚ēź‚ēź‚ēź‚ēź‚ēĚ‚ēö‚ēź‚ēĚ  ‚ēö‚ēź‚ēĚ ${Yellow}    |"
+echo -e "     |                                                                                                               ${BCyan} BETA${Yellow}    |"
+echo -e "     |                                                                                                                        |"
+echo -e "${Cyan}    +${Yellow}--------------------------------------------------------------------------------------------------------------------------${Cyan}+${Yellow}"
+echo -e "                                     |${BRed} Online Browser ${BYellow}by${BGreen} Hamza Hammouch${Cyan} powerd by${BPurple} linuxserver${Yellow} |"
+echo -e "                                     ${Cyan}+${Yellow}--------------------------------------------------------${Cyan}+"
 
-# الإعدادات الرئيسية
-trap cleanup SIGINT SIGQUIT SIGTSTP
-START_PORT=3000
+echo -e "${Yellow}معلومات النظام:${NC}"
+echo -e "${White}الذاكرة الكاملة: ${TOTAL_MEMORY_GB}GB${NC}"
+echo -e "${White}الذاكرة المتاحة: ${AVAILABLE_MEMORY_GB}GB${NC}"
+echo -e "${White}عدد نوى المعالج: ${CPU_CORES}${NC}"
+echo -e "${White}حجم الذاكرة المشتركة: ${SHM_SIZE}${NC}"
 
-# البداية الرئيسية للبرنامج
-main() {
-    show_banner
-    check_docker
-    get_system_info
-    optimize_system
-    create_network
-    
-    while true; do
-        show_banner
-        show_menu
+echo -e "${Yellow}     +${White}-------------------------------------------------------------------${Yellow}+"
+echo -e "${White}     | ${Yellow} ID ${White} |                   ${BPurple}   Browser Name                       ${White}   |"
+echo -e "${Yellow}     +${White}-------------------------------------------------------------------${Yellow}+"
+echo -e "${White}     | ${Red}[${Yellow}01${Red}]${White} |$Green Install Chromium${White}                                           |"
+echo -e "${White}     | ${Red}[${Yellow}02${Red}]${White} |$Green Install Firefox${White}                                            |"
+echo -e "${White}     | ${Red}[${Yellow}03${Red}]${White} |$Green Install Opera${White}                                              |"
+echo -e "${White}     | ${Red}[${Yellow}04${Red}]${White} |$Green Install Mullvad Browser${White}                                    |"
+echo -e "${White}     | ${Red}[${Yellow}05${Red}]${White} |$Green Install Brave${White}                                              |"
+echo -e "${White}     | ${Red}[${Yellow}06${Red}]${White} |$Green Install Vivaldi${White}                                            |"
+echo -e "${White}     | ${Red}[${Yellow}07${Red}]${White} |$Green Install Microsoft Edge${White}                                     |"
+echo -e "${White}     | ${Red}[${Yellow}08${Red}]${White} |$Green Install Tor Browser${White}                                        |"
+echo -e "${White}     | ${Red}[${Yellow}09${Red}]${White} |$Green Install Falkon${White}                                             |"
+echo -e "${White}     | ${Red}[${Yellow}10${Red}]${White} |$Green Install Nyxt${White}                                               |"
+echo -e "${White}     | ${Red}[${Yellow}11${Red}]${White} |$Green Install Lynx (Text Browser)${White}                                |"
+echo -e "${White}     | ${Red}[${Yellow}12${Red}]${White} |$Green Install All Browsers${White}                                       |"
+echo -e "${White}     | ${Red}[${Yellow}13${Red}]${White} |$Green Manage Containers${White}                                          |"
+echo -e "${Yellow}     +${White}-------------------------------------------------------------------${Yellow}+"
+echo ""
+echo -e -n "$White    ${Red} [${Cyan}!Note:${Red}]$White If your choice is Chromium type $Green 1${White} not ${Red}01$White and the same principle applies to other browsers "
+echo ""
+echo ""
+echo -e -n "$White    ${Red} [${Cyan}!${Red}]$White Type the$BRed ID$White "
+read -p "of your choice : " choice
+
+case $choice in
+    1)
+        create_container "chromium" "ghcr.io/linuxserver/chromium:latest" "--cap-add=SYS_ADMIN"
+        ;;
+    2)
+        create_container "firefox" "ghcr.io/linuxserver/firefox:latest" ""
+        ;;
+    3)
+        create_container "opera" "ghcr.io/linuxserver/opera:latest" ""
+        ;;
+    4)
+        create_container "mullvad-browser" "ghcr.io/linuxserver/mullvad-browser:latest" ""
+        ;;
+    5)
+        create_container "brave" "ghcr.io/linuxserver/brave:latest" "--cap-add=SYS_ADMIN"
+        ;;
+    6)
+        create_container "vivaldi" "ghcr.io/linuxserver/vivaldi:latest" ""
+        ;;
+    7)
+        create_container "edge" "ghcr.io/linuxserver/edge:latest" ""
+        ;;
+    8)
+        create_container "tor-browser" "ghcr.io/linuxserver/tor-browser:latest" ""
+        ;;
+    9)
+        create_container "falkon" "ghcr.io/linuxserver/falkon:latest" ""
+        ;;
+    10)
+        create_container "nyxt" "ghcr.io/linuxserver/nyxt:latest" ""
+        ;;
+    11)
+        create_container "lynx" "ghcr.io/linuxserver/lynx:latest" ""
+        ;;
+    12)
+        echo -e "${Yellow}جاري تثبيت جميع المتصفحات...${NC}"
+        create_container "chromium" "ghcr.io/linuxserver/chromium:latest" "--cap-add=SYS_ADMIN"
+        create_container "firefox" "ghcr.io/linuxserver/firefox:latest" ""
+        create_container "opera" "ghcr.io/linuxserver/opera:latest" ""
+        create_container "mullvad-browser" "ghcr.io/linuxserver/mullvad-browser:latest" ""
+        create_container "brave" "ghcr.io/linuxserver/brave:latest" "--cap-add=SYS_ADMIN"
+        create_container "vivaldi" "ghcr.io/linuxserver/vivaldi:latest" ""
+        ;;
+    13)
+        echo -e "${Yellow}إدارة الحاويات:${NC}"
+        echo -e "${White}1. عرض الحاويات النشطة${NC}"
+        echo -e "${White}2. إعادة تشغيل حاوية${NC}"
+        echo -e "${White}3. إيقاف حاوية${NC}"
+        echo -e "${White}4. حذف حاوية${NC}"
+        read -p "اختر الخيار: " manage_choice
         
-        echo -e -n "${BOLD_WHITE}    [${CYAN}!${WHITE}] أدخل رقم المتصفح الذي تريد تثبيته (0 للخروج، A للإعدادات المتقدمة): ${NC}"
-        read choice
-        
-        case $choice in
+        case $manage_choice in
             1)
-                run_browser "chromium" "ghcr.io/linuxserver/chromium:latest" $START_PORT
-                START_PORT=$((START_PORT + 10))
+                docker ps
                 ;;
             2)
-                run_browser "firefox" "ghcr.io/linuxserver/firefox:latest" $START_PORT
-                START_PORT=$((START_PORT + 10))
+                read -p "أدخل اسم الحاوية: " container_name
+                docker restart $container_name
                 ;;
             3)
-                run_browser "opera" "ghcr.io/linuxserver/opera:latest" $START_PORT
-                START_PORT=$((START_PORT + 10))
+                read -p "أدخل اسم الحاوية: " container_name
+                docker stop $container_name
                 ;;
             4)
-                run_browser "mullvad-browser" "ghcr.io/linuxserver/mullvad-browser:latest" $START_PORT
-                START_PORT=$((START_PORT + 10))
-                ;;
-            5)
-                run_browser "brave" "ghcr.io/linuxserver/brave:latest" $START_PORT
-                START_PORT=$((START_PORT + 10))
-                ;;
-            6)
-                run_browser "vivaldi" "ghcr.io/linuxserver/vivaldi:latest" $START_PORT
-                START_PORT=$((START_PORT + 10))
-                ;;
-            7)
-                run_browser "tor-browser" "ghcr.io/linuxserver/tor-browser:latest" $START_PORT
-                START_PORT=$((START_PORT + 10))
-                ;;
-            8)
-                run_browser "edge" "ghcr.io/linuxserver/edge:latest" $START_PORT
-                START_PORT=$((START_PORT + 10))
-                ;;
-            9)
-                run_browser "lynx" "ghcr.io/linuxserver/lynx:latest" $START_PORT
-                START_PORT=$((START_PORT + 10))
-                ;;
-            10)
-                echo -e "${BOLD_CYAN}جاري تثبيت جميع المتصفحات...${NC}"
-                run_browser "chromium" "ghcr.io/linuxserver/chromium:latest" $START_PORT
-                START_PORT=$((START_PORT + 10))
-                run_browser "firefox" "ghcr.io/linuxserver/firefox:latest" $START_PORT
-                START_PORT=$((START_PORT + 10))
-                run_browser "opera" "ghcr.io/linuxserver/opera:latest" $START_PORT
-                START_PORT=$((START_PORT + 10))
-                run_browser "mullvad-browser" "ghcr.io/linuxserver/mullvad-browser:latest" $START_PORT
-                START_PORT=$((START_PORT + 10))
-                run_browser "brave" "ghcr.io/linuxserver/brave:latest" $START_PORT
-                START_PORT=$((START_PORT + 10))
-                run_browser "vivaldi" "ghcr.io/linuxserver/vivaldi:latest" $START_PORT
-                START_PORT=$((START_PORT + 10))
-                echo -e "${BOLD_GREEN}تم تثبيت جميع المتصفحات بنجاح${NC}"
-                ;;
-            a|A)
-                advanced_settings
-                continue
-                ;;
-            0)
-                cleanup
+                read -p "أدخل اسم الحاوية: " container_name
+                docker stop $container_name
+                docker rm $container_name
                 ;;
             *)
-                echo -e "${BOLD_RED}خيار غير صالح!${NC}"
-                sleep 1
-                continue
+                echo -e "${Red}خيار غير صحيح!${NC}"
                 ;;
         esac
-        
-        echo -e "${BOLD_GREEN}تم الانتهاء من التثبيت بنجاح!${NC}"
-        echo -e "${BOLD_WHITE}يمكنك الوصول إلى المتصفح عبر: ${BOLD_CYAN}http://your-server-ip:${START_PORT}${NC}"
-        read -n 1 -s -r -p "اضغط أي مفتاح للمتابعة..."
-    done
-}
+        ;;
+    *)
+        echo -e "${Red}Invalid choice. Please enter a valid option.${NC}"
+        exit 1
+        ;;
+esac
 
-# بدء البرنامج الرئيسي
-main
+#######################################################
+
+clear
+echo ""
+echo -e -n "$White    ${Red} [${Green} ‚úĒ ${Red}]$White Browser installation completed successfully ( ‚ÄĘŐÄ ŌČ ‚ÄĘŐĀ )‚úß"
+echo ""
+echo ""
+echo -e "    ${Red} ‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä${Blue}‚ĘÄ‚£†‚£ī‚£ĺ‚£Ņ‚£Ņ‚£Ņ‚£∂‚£Ą‚°Ä‚†Ä"
+echo -e "    ${Red} ‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä${Blue}‚£Ä‚£§‚£ĺ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£∑‚°Ą"
+echo -e "    ${Red} ‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä${Blue}‚ĘÄ‚£†‚£ī‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£∑"
+echo -e "    ${Red} ‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚£Ä‚°§${Blue}‚†ĺ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚°ü‚†Č‚†ô‚£Ņ‚£Ņ‚°Ņ"
+echo -e "    ${Red} ‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚ĘÄ‚£†‚†∂‚†õ‚†Ā‚†Ä‚†Ä${Blue}‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£ß‚£Ą‚£†‚£Ņ‚°Ņ‚†Ā"
+echo -e "    ${Red} ‚†Ä‚†Ä‚£Ä‚°§‚†ě‚†Č‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä${Blue}‚†ł‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚°Ņ‚†ü‚†č‚†Ä‚†Ä"
+echo -e "    ${Red} ‚ĘÄ‚°ĺ‚†Č‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä${Blue}‚†ô‚ĘŅ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚£Ņ‚†Ņ‚†õ‚†Č‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä"
+echo -e "    ${Red} ‚£ĺ‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚ĘÄ‚£†‚£§‚°Ä${Blue}‚†ô‚ĘŅ‚£Ņ‚°Ņ‚†ü‚†č‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä"
+echo -e "    ${Red} ‚£Ņ‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚£†‚£ī‚£ĺ‚°Ņ‚†ü‚Ęč‚£§‚†∂‚†õ‚†Ā‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä"
+echo -e "    ${Red} ‚†ė‚£ß‚°Ä‚†Ä‚Ęį‚£Ņ‚£∂‚£Ņ‚†Ņ‚†õ‚£©‚°ī‚†ě‚†Č‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä"
+echo -e "    ${Red} ‚†Ä‚†ą‚†õ‚†¶‚£§‚£§‚£§‚°§‚†Ė‚†č‚†Ā‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä‚†Ä"
+echo -e "    ${White}"
+
+# عرض معلومات الاتصال
+echo -e "${BGreen}معلومات الاتصال:${NC}"
+echo -e "${White}للاتصال بالمتصفح، افتح المتصفح على جهازك واذهب إلى:${NC}"
+echo -e "${Yellow}https://shell.cloud.google.com/devshell/proxy?authuser=0&port=3000${NC}"
+echo ""
+echo -e "${BYellow}نصائح لتحسين الأداء:${NC}"
+echo -e "${White}- تأكد من وجود اتصال إنترنت سريع ومستقر${NC}"
+echo -e "${White}- أغبق التطبيقات غير الضرورية لتحرير الذاكرة${NC}"
+echo -e "${White}- استخدم دقة شاشة مناسبة (ليست最高 دقة)${NC}"
+echo -e "${White}- قم بتحديث الصفحة إذا واجهت أي مشاكل في الاتصال${NC}"
